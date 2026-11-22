@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Check, Copy, X } from "lucide-react";
+import { Check, Copy, Info, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "../../components/ui/Button";
@@ -147,9 +147,31 @@ export function PublicationFormModal({
             </label>
             <div className="subscription-switch-item">
               <label className="subscription-switch-label" htmlFor="publication-healthy">
-                <span>{t("开启后仅导出出口已就绪且未熔断的节点；客户端仍会自行测速。")}</span>
+                <span>{t("仅导出健康节点")}</span>
+                <span
+                  className="subscription-info-icon"
+                  title={t("开启后仅导出出口已就绪且未熔断的节点；客户端仍会自行测速。")}
+                  aria-label={t("开启后仅导出出口已就绪且未熔断的节点；客户端仍会自行测速。")}
+                  tabIndex={0}
+                >
+                  <Info size={13} />
+                </span>
               </label>
               <Switch id="publication-healthy" {...form.register("healthy_only")} />
+            </div>
+          </div>
+
+          <div className="field-group">
+            <span className="field-label">{t("发布格式")}</span>
+            <div className="publication-format-note">
+              <div className="publication-format-line">
+                <span>{t("Clash / Mihomo")}</span>
+                <code>.yaml</code>
+              </div>
+              <div className="publication-format-line">
+                <span>{t("sing-box")}</span>
+                <code>.json</code>
+              </div>
             </div>
           </div>
 
@@ -159,8 +181,8 @@ export function PublicationFormModal({
             </label>
             <Textarea
               id="publication-regex"
-              rows={4}
-              placeholder={t("每行一条正则表达式，例如：\n\n香港\n日本\n*专线\n!过期\n!失效")}
+              rows={6}
+              placeholder={t("每行一条正则表达式，例如：\n\n香港\n日本\n*专线\n!过期\n!失效\n\n表示：选择【香港】或【日本】的【专线】节点，并排除包含【过期】或【失效】的节点。")}
               {...form.register("regex_filters_text")}
             />
             <div className="muted" style={{ marginTop: 4, fontSize: 12 }}>
@@ -175,17 +197,17 @@ export function PublicationFormModal({
             </label>
             <Textarea
               id="publication-region"
-              rows={4}
+              rows={6}
               placeholder={t("每行一条，如 hk / us / !hk")}
               {...form.register("region_filters_text")}
             />
             <p className="muted" style={{ marginTop: 4, fontSize: 12 }}>
-              {t("地区过滤依赖出口 IP 探测与 GeoIP；未知地区节点不会命中。")}
+              {t("支持反选：以 ! 开头可排除地区（如 !hk）。可与正选混用，最终结果为“先正选再排除”。")}
             </p>
           </div>
 
           {publication ? (
-            <div className="field-group" style={{ gridColumn: "1 / -1" }}>
+            <div className="field-group field-span-2">
               <CopyValue label={t("Clash 订阅地址")} value={resolvePublicURL(publication.subscription_path)} />
               <CopyValue
                 label={t("Clash Provider 地址")}

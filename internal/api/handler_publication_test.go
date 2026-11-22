@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Resinat/Resin/internal/node"
 	"github.com/Resinat/Resin/internal/service"
@@ -195,5 +196,58 @@ func TestHandleRotateSubscriptionPublicationToken(t *testing.T) {
 	newRec := doJSONRequest(t, srv, http.MethodGet, rotated.SubscriptionPath, nil, false)
 	if newRec.Code != http.StatusOK {
 		t.Fatalf("new token status = %d body=%s", newRec.Code, newRec.Body.String())
+	}
+}
+
+func TestHandleSubscriptionPublicationRegionAndHealthyFilters(t *testing.T) {
+	srv, cp, _ := newControlPlaneTestServer(t)
+	createTestSubscriptionWithNode(t, srv, cp)
+
+	// 写入探测地区，确保地区过滤可以命中测试用的 us。
+	cp.Pool.Range(func(_ node.Hash, entry *node.NodeEntry) bool {
+		entry.SetEgressRegion("us")
+		return false
+	})
+
+	createPublication := func(name string, regions []string, healthyOnly bool) service.SubscriptionPublicationResponse {
+		t.Helper()
+		rec := doJSONRequest(t, srv, http.MethodPost, "/api/v1/subscription-publications", map[string]any{
+			"name":           name,
+			"enabled":        true,
+			"regex_filters":  []string{"hk"},
+			"region_filters": regions,
+			"healthy_only":   healthyOnly,
+		}, true)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("create %s status: got %d body=%s", name, rec.Code, rec.Body.String())
+		}
+		var created service.SubscriptionPublicationResponse
+		if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+			t.Fatalf("decode %s: %v", name, err)
+		}
+		return created
+	}
+
+	positive := createPublication("RegionPositive", []string{"us"}, false)
+	if positive.NodeCount != 1 {
+		t.Fatalf("positive region node_count = %d, want 1", positive.NodeCount)
+	}
+	negative := createPublication("RegionNegative", []string{"!us"}, false)
+	if negative.NodeCount != 0 {
+		t.Fatalf("negative region node_count = %d, want 0", negative.NodeCount)
+	}
+	healthy := createPublication("HealthyOnly", nil, true)
+	if healthy.NodeCount != 1 {
+		t.Fatalf("healthy-only node_count = %d, want 1", healthy.NodeCount)
+	}
+
+	// 熔断后 healthy_only 发布应立即不再导出该节点。
+	cp.Pool.Range(func(_ node.Hash, entry *node.NodeEntry) bool {
+		entry.CircuitOpenSince.Store(time.Now().UnixNano())
+		return false
+	})
+	unhealthy := createPublication("HealthyAfterBreak", nil, true)
+	if unhealthy.NodeCount != 0 {
+		t.Fatalf("healthy-only after circuit open node_count = %d, want 0", unhealthy.NodeCount)
 	}
 }
