@@ -9,3 +9,6 @@ start-instance.sh
 .claude/
 .omc/
 .local/
+
+# Docker 绑定挂载的运行时数据目录（docker-compose.yml 同级）
+/data/
