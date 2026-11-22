@@ -9,6 +9,7 @@ import {
   Network,
   Regex,
   Rss,
+  Send,
   Server,
   Settings,
 } from "lucide-react";
@@ -26,12 +27,15 @@ type NavItem = {
   label: string;
   path: string;
   icon: typeof LayoutDashboard;
+  // end 为 true 时仅在路径精确匹配时高亮，避免父子菜单同时高亮。
+  end?: boolean;
 };
 
 const navItems: NavItem[] = [
   { label: "总览看板", path: "/dashboard", icon: LayoutDashboard },
   { label: "平台管理", path: "/platforms", icon: Server },
-  { label: "订阅管理", path: "/subscriptions", icon: Rss },
+  { label: "订阅管理", path: "/subscriptions", icon: Rss, end: true },
+  { label: "订阅发布", path: "/subscriptions/publish", icon: Send, end: true },
   { label: "节点池", path: "/nodes", icon: Network },
   { label: "接入点", path: "/endpoints", icon: Cable },
   { label: "请求头规则", path: "/rules", icon: Regex },
@@ -111,6 +115,7 @@ export function AppShell() {
                 <NavLink
                   key={item.path}
                   to={item.path}
+                  end={item.end}
                   className={({ isActive }) => cn("nav-item", isActive && "nav-item-active")}
                 >
                   <Icon size={16} />

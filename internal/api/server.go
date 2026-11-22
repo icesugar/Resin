@@ -63,6 +63,10 @@ func NewServerWithAddress(
 
 	// Public (no auth)
 	mux.Handle("GET /healthz", HandleHealthz())
+	if cp != nil {
+		// 订阅发布内容不经过 admin token 认证，由发布项自身 token 保护。
+		mux.Handle("GET /sub/{id}/{file}", HandleGetSubscriptionPublicationContent(cp))
+	}
 
 	// Authenticated routes
 	authed := http.NewServeMux()
@@ -107,6 +111,15 @@ func NewServerWithAddress(
 		authed.Handle("DELETE /api/v1/subscriptions/{id}", HandleDeleteSubscription(cp))
 		authed.Handle("POST /api/v1/subscriptions/{id}/actions/refresh", HandleRefreshSubscription(cp))
 		authed.Handle("POST /api/v1/subscriptions/{id}/actions/cleanup-circuit-open-nodes", HandleCleanupSubscriptionCircuitOpenNodes(cp))
+
+		// Subscription publications.
+		authed.Handle("GET /api/v1/subscription-publications", HandleListSubscriptionPublications(cp))
+		authed.Handle("POST /api/v1/subscription-publications", HandleCreateSubscriptionPublication(cp))
+		authed.Handle("POST /api/v1/subscription-publications/preview", HandlePreviewSubscriptionPublication(cp))
+		authed.Handle("GET /api/v1/subscription-publications/{id}", HandleGetSubscriptionPublication(cp))
+		authed.Handle("PATCH /api/v1/subscription-publications/{id}", HandleUpdateSubscriptionPublication(cp))
+		authed.Handle("DELETE /api/v1/subscription-publications/{id}", HandleDeleteSubscriptionPublication(cp))
+		authed.Handle("POST /api/v1/subscription-publications/{id}/actions/rotate-token", HandleRotateSubscriptionPublicationToken(cp))
 
 		// Account header rules.
 		authed.Handle("GET /api/v1/account-header-rules", HandleListRules(cp))

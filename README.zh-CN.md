@@ -66,6 +66,16 @@
 - 对于 sing-box JSON/原始 outbounds：`socks`、`http`、`shadowsocks`、`vmess`、`trojan`、`wireguard`、`hysteria`、`vless`、`shadowtls`、`tuic`、`hysteria2`、`anytls`、`ssh`。
 - 对于 Clash 转换：`ss`/`shadowsocks`、`socks`/`socks4`/`socks4a`/`socks5`、`http`、`vmess`、`vless`、`trojan`、`wireguard`/`wg`、`hysteria`、`hysteria2`/`hy2`、`tuic`、`anytls`、`ssh`。
 
+### 订阅发布（导出给客户端）
+
+Resin 可以把节点池按“节点名正则 + 地区过滤”规则发布为现代客户端可直接订阅的地址。进入左侧菜单 **「订阅发布」**，新建发布项后即可复制地址：
+
+- Clash / Mihomo / OpenClash / PassWall / Shadowrocket：`/sub/{id}/{token}.yaml`
+- Clash Provider（仅 `proxies:`）：`/sub/{id}/{token}.yaml?format=provider`
+- sing-box：`/sub/{id}/{token}.json`
+
+发布项可以单独启用或停用，也可以选择“仅导出健康节点”。发布地址由随机 token 保护，重新生成令牌后旧地址会立即失效。订阅发布只读取节点池，不会改变平台路由规则。
+
 
 ## 🚀 Quick Start
 
@@ -104,6 +114,7 @@ services:
 2. 输入刚才设置的 `RESIN_ADMIN_TOKEN` 登录后台。
 3. 在左侧菜单找到 **「订阅管理」**，添加你的节点订阅。
 4. 稍等片刻，等待节点池刷新出你的节点。
+5. 如需把节点导出给 OpenWrt、Clash、PassWall、sing-box、Shadowrocket 等客户端，进入左侧 **「订阅发布」** 新建发布项并复制对应订阅地址。
 
 ### 第三步：开始你的代理请求
 客户端接入方式参考接下来的章节。常见场景下，你可以按客户端能力选择 HTTP 正向代理、SOCKS5 正向代理或反向代理。

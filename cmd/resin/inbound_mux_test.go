@@ -103,6 +103,7 @@ func TestInboundMux_RoutesAPIForControlPlanePaths(t *testing.T) {
 		"/ui",
 		"/ui/",
 		"/ui/platforms/demo",
+		"/sub/00000000-0000-0000-0000-000000000000/token.yaml",
 	}
 	for _, path := range cases {
 		t.Run(path, func(t *testing.T) {
@@ -274,6 +275,14 @@ func TestEndpointInboundMux_AppliesCapabilities(t *testing.T) {
 		mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/endpoints", nil))
 		if rec.Code != http.StatusNotFound {
 			t.Fatalf("status = %d, want 404", rec.Code)
+		}
+	})
+
+	t.Run("subscription publication is available with proxy capability", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/sub/00000000-0000-0000-0000-000000000000/token.yaml", nil))
+		if rec.Header().Get("X-Route") != "api" {
+			t.Fatalf("subscription route = %q, want api", rec.Header().Get("X-Route"))
 		}
 	})
 

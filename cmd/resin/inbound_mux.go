@@ -44,9 +44,16 @@ func newEndpointInboundMux(
 			return
 		}
 		if shouldRouteControlPlane(r) {
-			if r.URL != nil && r.URL.Path != "/healthz" && !endpoint.AllowManagement {
-				http.NotFound(w, r)
-				return
+			if r.URL != nil && r.URL.Path != "/healthz" {
+				allowed := endpoint.AllowManagement
+				if isSubscriptionPath(r.URL.Path) {
+					// 订阅发布内容属于代理客户端产物，管理或代理能力任一开启即可访问。
+					allowed = endpoint.AllowManagement || endpoint.AllowProxy
+				}
+				if !allowed {
+					http.NotFound(w, r)
+					return
+				}
 			}
 			apiHandler.ServeHTTP(w, r)
 			return
@@ -150,9 +157,16 @@ func shouldRouteControlPlane(r *http.Request) bool {
 		return true
 	case p == "/ui" || strings.HasPrefix(p, "/ui/"):
 		return true
+	case isSubscriptionPath(p):
+		return true
 	default:
 		return false
 	}
+}
+
+// isSubscriptionPath 判断请求是否命中公开订阅发布路径。
+func isSubscriptionPath(path string) bool {
+	return path == "/sub" || strings.HasPrefix(path, "/sub/")
 }
 
 func escapedPathSegments(r *http.Request) []string {

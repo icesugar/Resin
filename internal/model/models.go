@@ -18,6 +18,20 @@ type Platform struct {
 	UpdatedAtNs                      int64  `json:"updated_at_ns"`
 }
 
+// SubscriptionPublication 表示一组订阅发布规则。
+// 它像平台一样筛选节点，但输出 Clash/sing-box 订阅内容，不参与路由。
+type SubscriptionPublication struct {
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	Enabled       bool   `json:"enabled"`
+	RegexFilters  []string
+	RegionFilters []string
+	HealthyOnly   bool   `json:"healthy_only"`
+	Token         string `json:"-"`
+	CreatedAtNs   int64  `json:"created_at_ns"`
+	UpdatedAtNs   int64  `json:"updated_at_ns"`
+}
+
 // Subscription represents a node subscription source.
 type Subscription struct {
 	ID                        string `json:"id"`

@@ -66,6 +66,16 @@ It helps shield your services from unstable underlying proxy nodes by aggregatin
 - For sing-box JSON/raw outbounds: `socks`, `http`, `shadowsocks`, `vmess`, `trojan`, `wireguard`, `hysteria`, `vless`, `shadowtls`, `tuic`, `hysteria2`, `anytls`, `ssh`.
 - For Clash conversion: `ss`/`shadowsocks`, `socks`/`socks4`/`socks4a`/`socks5`, `http`, `vmess`, `vless`, `trojan`, `wireguard`/`wg`, `hysteria`, `hysteria2`/`hy2`, `tuic`, `anytls`, `ssh`.
 
+### Published subscriptions (client export)
+
+Resin can publish node-pool subsets as subscription URLs for modern clients, using the same node-tag regex and region filters as platform management. Open **Publish** in the left menu, create a publication, and copy one of its URLs:
+
+- Clash / Mihomo / OpenClash / PassWall / Shadowrocket: `/sub/{id}/{token}.yaml`
+- Clash Provider (only `proxies:`): `/sub/{id}/{token}.yaml?format=provider`
+- sing-box: `/sub/{id}/{token}.json`
+
+Each publication can be enabled independently and optionally exports healthy nodes only. URLs are protected by a random token; rotating the token invalidates old URLs immediately. Publishing only reads the node pool and does not change platform routing rules.
+
 ## 🚀 Quick Start
 
 In just three steps, you can turn your proxy subscriptions into a highly available proxy pool.
@@ -106,6 +116,7 @@ Custom endpoint ports must also be reachable from outside the container. Docker 
 2. Log in with the `RESIN_ADMIN_TOKEN` you set.
 3. Go to **Subscriptions** in the left menu and add your node subscription.
 4. Wait briefly for the node pool to refresh.
+5. To export nodes to OpenWrt, Clash, PassWall, sing-box, Shadowrocket, or similar clients, open **Publish** in the left menu, create a publication, and copy its subscription URL.
 
 ### Step 3: Start sending proxy requests
 

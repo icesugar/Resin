@@ -60,6 +60,7 @@
    * 所有接入点共享控制面、路由池、节点池、出站 transport pool、日志与指标组件，仅 listener 和入站能力策略彼此独立。
    * 每个接入点在 TCP 层按首字节分流：首字节为 `0x05` 时进入 SOCKS5；其余流量进入 HTTP 入口，再区分控制面 API、WebUI、HTTP 正向代理与反向代理。
    * `/healthz` 在所有接入点始终可用；关闭管理页面时，其他控制面 API 与 WebUI 路径返回 404。
+   * `/sub/*` 订阅发布内容属于客户端订阅产物，接入点开启管理能力或代理能力任一即可访问；token 错误或发布停用时返回 404。
    * 接入点可随时配置“当系统未设定代理令牌时，也强制客户端发送代理认证信息”（默认关闭）。`RESIN_PROXY_TOKEN` 非空时始终执行令牌认证；为空且此选项启用时，HTTP 正向代理缺少可解析且非空的 Basic 用户名会返回 407，SOCKS5 仅接受 `0x02` 并要求用户名和密码均非空，但不校验密码内容。空令牌下，此选项只用于强制携带身份，不构成安全认证。当启用此选项，客户端发来空认证不再视为 Default 平台请求。
 4. HTTP 正向代理：
    * 格式：`Proxy-Authorization: Basic Platform.Account:PROXY_TOKEN`（user=Platform.Account，pass=PROXY_TOKEN）；解析时先按最右侧 `:` 切 Token，再对左侧身份串按第一个出现的 `.` 或 `:` 切 `Platform` 与 `Account`。
@@ -595,6 +596,7 @@ Resin 项目中所有的数据库都设计为单写，不会有多进程写入�
 * system_config(config_json, version, updated_at_ns)
 * platforms(id PK, name UNIQUE, sticky_ttl_ns, regex_filters_json, region_filters_json, reverse_proxy_miss_action, reverse_proxy_empty_account_behavior, reverse_proxy_fixed_account_header, allocation_policy, passive_circuit_breaker_disabled, updated_at_ns)
 * subscriptions(id PK, name, url, update_interval_ns, enabled, ephemeral, created_at_ns, updated_at_ns)
+* subscription_publications(id PK, name UNIQUE, enabled, regex_filters_json, region_filters_json, healthy_only, token UNIQUE, created_at_ns, updated_at_ns)
 * account_header_rules(url_prefix PK, headers_json, updated_at_ns)
 
 > 订阅的 LastCheck、LastError、LastUpdate 不进行持久化。因为启动时总是会更新一次。
@@ -1534,6 +1536,78 @@ API 阻塞到更新完成为止。
 }
 ```
 
+### Subscription Publication
+
+订阅发布复用平台管理中的“节点标签正则 + 地区过滤”规则语义，但发布结果不是路由配置，而是可直接导入现代客户端的 Clash/Mihomo 或 sing-box 订阅内容。
+
+#### SubscriptionPublication 模型
+
+```json
+{
+  "id": "uuid",
+  "name": "ClashHK",
+  "enabled": true,
+  "regex_filters": ["hk", "!expired"],
+  "region_filters": ["hk"],
+  "healthy_only": false,
+  "matching_node_count": 120,
+  "node_count": 118,
+  "skipped_node_count": 2,
+  "healthy_node_count": 90,
+  "subscription_path": "/sub/uuid/token.yaml",
+  "provider_path": "/sub/uuid/token.yaml?format=provider",
+  "singbox_path": "/sub/uuid/token.json",
+  "created_at": "2026-02-10T12:00:00Z",
+  "updated_at": "2026-02-10T12:00:00Z"
+}
+```
+
+`node_count` 仅统计成功转换为目标格式的节点；无法表达或不支持的协议会累加到 `skipped_node_count`。
+
+#### 公开订阅内容
+
+以下路由无需 Admin Token，由发布项自身的随机 token 保护：
+
+* `GET /sub/{publication_id}/{token}.yaml`：完整 Clash/Mihomo 配置，可直接导入 OpenClash、PassWall、Clash、Shadowrocket 等客户端。
+* `GET /sub/{publication_id}/{token}.yaml?format=provider`：仅输出 `proxies:`，适合作为 Clash Provider 使用。
+* `GET /sub/{publication_id}/{token}.json`：最小可用的 sing-box JSON 配置。
+
+行为约定：
+
+* token 使用 `crypto/rand` 生成 32 字节随机值并以 base64url 编码，比较时使用常量时间比较。
+* token 错误、发布项不存在或发布已停用统一返回 `404`，避免泄露发布状态。
+* 响应包含 `X-Resin-Node-Count` 与 `X-Resin-Skipped-Nodes` 统计头。
+* `/sub/*` 属于公开数据面路由：接入点开启管理能力或代理能力任一即可访问。
+
+#### 管理接口
+
+* `GET /subscription-publications?enabled=&keyword=&limit=&offset=&sort_by=&sort_order=`
+* `POST /subscription-publications`
+* `POST /subscription-publications/preview`
+* `GET /subscription-publications/{publication_id}`
+* `PATCH /subscription-publications/{publication_id}`
+* `DELETE /subscription-publications/{publication_id}`
+* `POST /subscription-publications/{publication_id}/actions/rotate-token`
+
+创建与更新字段：
+
+```json
+{
+  "name": "ClashHK",
+  "enabled": true,
+  "regex_filters": ["hk", "!expired"],
+  "region_filters": ["hk"],
+  "healthy_only": false
+}
+```
+
+关键校验：
+
+* `name` 复用平台命名规则，名称必须唯一。
+* `regex_filters` 复用平台规则：普通正则表示满足其一，`*` 前缀表示必须包含，`!` 前缀表示排除。
+* `region_filters` 为小写 ISO 3166-1 alpha-2 地区码，可带 `!` 前缀取反。
+* `healthy_only=true` 时只导出出口已就绪且未熔断的节点；客户端仍会自行测速。
+
 ### 反向代理 Account Header Rules
 
 对应 `account_header_rules(url_prefix PK, headers_json...)`，并支持字典树最长前缀匹配。
@@ -2427,6 +2501,7 @@ WebUI 分为登录态与控制台态。未登录时进入登录页；登录后�
 * 总览看板
 * 平台管理
 * 订阅管理
+* 订阅发布
 * 节点池
 * 接入点
 * 请求头规则
@@ -2474,6 +2549,19 @@ WebUI 分为登录态与控制台态。未登录时进入登录页；登录后�
 点击“新建”弹出订阅创建表单，包含名称、更新间隔、订阅来源（远程 URL / 本地内容）、临时订阅开关、临时节点驱逐延迟、启用开关。
 
 点击表格行会打开订阅 Drawer，内含订阅配置编辑（基础信息、错误状态）与运维操作（手动刷新、清理失效节点、删除订阅）。
+
+## 订阅发布
+页面用于按节点标签与地区规则生成 Clash/Mihomo 与 sing-box 订阅地址。
+
+工具栏包含状态过滤、关键词搜索、新建与刷新。表格展示名称、过滤规则数量、导出节点数、启停开关、订阅地址、更新时间与操作。
+
+点击“新建”弹出发布表单，包含名称、启用开关、仅导出健康节点、节点名正则过滤与地区过滤。创建或编辑后可复制三类地址：
+
+* Clash/Mihomo/OpenClash/PassWall/Shadowrocket：`.yaml` 地址。
+* Clash Provider：带 `format=provider` 的 `.yaml` 地址，仅输出 `proxies:`。
+* sing-box：`.json` 地址。
+
+列表行提供编辑、重新生成令牌与删除操作。重新生成令牌后旧订阅地址立即失效。
 
 ## 节点池
 顶部为多条件过滤区，支持节点名、平台、订阅、区域、出口 IP、状态筛选，并提供刷新/重置按钮。

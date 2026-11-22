@@ -8,6 +8,7 @@ import { NodesPage } from "../features/nodes/NodesPage";
 import { RequireAuth } from "../features/auth/RequireAuth";
 import { PlatformDetailPage } from "../features/platforms/PlatformDetailPage";
 import { PlatformPage } from "../features/platforms/PlatformPage";
+import { PublicationPage } from "../features/publications/PublicationPage";
 import { RequestLogsPage } from "../features/requestLogs/RequestLogsPage";
 import { RulesPage } from "../features/rules/RulesPage";
 import { SubscriptionPage } from "../features/subscriptions/SubscriptionPage";
@@ -35,6 +36,7 @@ export function AppRoutes() {
         <Route path="/platforms" element={<PlatformPage />} />
         <Route path="/platforms/:platformId" element={<PlatformDetailPage />} />
         <Route path="/subscriptions" element={<SubscriptionPage />} />
+        <Route path="/subscriptions/publish" element={<PublicationPage />} />
         <Route path="/nodes" element={<NodesRoute />} />
         <Route path="/endpoints" element={<EndpointsPage />} />
         <Route path="/rules" element={<RulesPage />} />
