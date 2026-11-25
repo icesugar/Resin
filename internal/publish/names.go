@@ -80,9 +80,30 @@ func PrepareNodeNames(nodes []Node, groupName string) (names []string, safeGroup
 	}
 	baseNames := make([]string, len(nodes))
 	for i, n := range nodes {
-		baseNames[i] = SanitizeNodeName(n.Name, n.Hash)
+		baseNames[i] = nodeNameWithRegion(n.Region, SanitizeNodeName(n.Name, n.Hash))
 	}
 	return UniqueNames(baseNames, reserved), safeGroupName, autoGroupName
+}
+
+// nodeNameWithRegion 在节点名前添加出口国家代码，未知地区保持原名。
+func nodeNameWithRegion(region, name string) string {
+	code := strings.ToUpper(strings.TrimSpace(region))
+	if len(code) != 2 {
+		return name
+	}
+	for _, r := range code {
+		if r < 'A' || r > 'Z' {
+			return name
+		}
+	}
+
+	// 避免源节点名本身已以相同国家代码开头时重复添加。
+	firstToken, _, _ := strings.Cut(name, " ")
+	firstToken = strings.Trim(firstToken, "[](){}")
+	if strings.EqualFold(firstToken, code) {
+		return name
+	}
+	return sanitizeDisplayName(code + " " + name)
 }
 
 // UniqueNames 对名称做大小写不敏感的唯一化处理。

@@ -79,6 +79,24 @@ func TestPrepareNodeNamesReservesGroups(t *testing.T) {
 	}
 }
 
+func TestPrepareNodeNamesPrefixesEgressRegion(t *testing.T) {
+	nodes := []Node{
+		{Hash: "h1", Name: "HK 01", Region: "us"},
+		{Hash: "h2", Name: "JP 02", Region: "jp"},
+		{Hash: "h3", Name: "Unknown", Region: ""},
+	}
+	names, _, _ := PrepareNodeNames(nodes, "Resin")
+	want := []string{"US HK 01", "JP 02", "Unknown"}
+	if len(names) != len(want) {
+		t.Fatalf("names = %v, want %v", names, want)
+	}
+	for i := range want {
+		if names[i] != want[i] {
+			t.Fatalf("names[%d] = %q, want %q", i, names[i], want[i])
+		}
+	}
+}
+
 func TestAnalyzeSkipsUnsupported(t *testing.T) {
 	stats := Analyze(testNodes())
 	if stats.Matching != 3 || stats.Exportable != 2 || stats.Skipped != 1 {
@@ -116,8 +134,29 @@ func TestRenderClashFullConfig(t *testing.T) {
 	if len(config.Groups) != 2 || config.Groups[0].Name != "Resin Test" || config.Groups[1].Type != "url-test" {
 		t.Fatalf("unexpected groups: %+v", config.Groups)
 	}
-	if len(config.Rules) != 1 || config.Rules[0] != "MATCH,Resin Test" {
+	wantRuleCount := len(directPrivateCIDRs) + len(directPrivateCIDR6s) + len(directDomainSuffixes) + 3
+	if len(config.Rules) != wantRuleCount || config.Rules[0] != "IP-CIDR,10.0.0.0/8,DIRECT,no-resolve" {
 		t.Fatalf("rules = %v", config.Rules)
+	}
+	requireRule := func(want string) {
+		t.Helper()
+		for _, rule := range config.Rules {
+			if rule == want {
+				return
+			}
+		}
+		t.Fatalf("rules missing %q: %v", want, config.Rules)
+	}
+	requireRule("IP-CIDR6,fc00::/7,DIRECT,no-resolve")
+	requireRule("DOMAIN-SUFFIX,baidu.com,DIRECT")
+	requireRule("DOMAIN-SUFFIX,qq.com,DIRECT")
+	requireRule("DOMAIN-SUFFIX,weixin.qq.com,DIRECT")
+	requireRule("DOMAIN-SUFFIX,dingtalk.com,DIRECT")
+	requireRule("DOMAIN-SUFFIX,feishu.cn,DIRECT")
+	requireRule("GEOSITE,CN,DIRECT")
+	requireRule("GEOIP,CN,DIRECT")
+	if got := config.Rules[len(config.Rules)-1]; got != "MATCH,Resin Test" {
+		t.Fatalf("last rule = %q, want MATCH,Resin Test", got)
 	}
 
 	byType := map[string]map[string]any{}
@@ -173,7 +212,11 @@ func TestRenderSingboxConfig(t *testing.T) {
 
 	var config struct {
 		Outbounds []map[string]any `json:"outbounds"`
-		Route     map[string]any   `json:"route"`
+		Route     struct {
+			Rules   []map[string]any `json:"rules"`
+			RuleSet []map[string]any `json:"rule_set"`
+			Final   string           `json:"final"`
+		} `json:"route"`
 	}
 	if err := json.Unmarshal(result.Content, &config); err != nil {
 		t.Fatalf("unmarshal singbox: %v", err)
@@ -185,8 +228,24 @@ func TestRenderSingboxConfig(t *testing.T) {
 	if asString(selector["type"]) != "selector" || asString(selector["tag"]) != "Resin Test" {
 		t.Fatalf("selector = %+v", selector)
 	}
-	if asString(config.Route["final"]) != "Resin Test" {
-		t.Fatalf("route final = %v", config.Route["final"])
+	if config.Route.Final != "Resin Test" {
+		t.Fatalf("route final = %v", config.Route.Final)
+	}
+	if len(config.Route.Rules) != 4 {
+		t.Fatalf("route rules = %+v", config.Route.Rules)
+	}
+	if private, _ := config.Route.Rules[0]["ip_is_private"].(bool); !private {
+		t.Fatalf("first route rule should match private IPs: %+v", config.Route.Rules[0])
+	}
+	domains, ok := config.Route.Rules[1]["domain_suffix"].([]any)
+	if !ok || len(domains) == 0 {
+		t.Fatalf("domain suffix rule = %+v", config.Route.Rules[1])
+	}
+	if len(config.Route.RuleSet) != 2 {
+		t.Fatalf("route rule_set = %+v", config.Route.RuleSet)
+	}
+	if asString(config.Route.RuleSet[0]["tag"]) != "geosite-cn" || asString(config.Route.RuleSet[1]["tag"]) != "geoip-cn" {
+		t.Fatalf("unexpected rule sets: %+v", config.Route.RuleSet)
 	}
 	// 原始 tag 必须被重写为导出名称，避免客户端出现不可读 tag。
 	for _, outbound := range config.Outbounds[1:] {

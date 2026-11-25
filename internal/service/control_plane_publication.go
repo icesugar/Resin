@@ -444,9 +444,11 @@ func (s *ControlPlaneService) collectPublicationNodes(
 			return true
 		}
 
+		region := entry.GetRegion(geoLookup)
 		result.Nodes = append(result.Nodes, publish.Node{
 			Hash:       h.Hex(),
 			Name:       s.Pool.ResolveNodeDisplayTag(h),
+			Region:     region,
 			RawOptions: append(json.RawMessage(nil), entry.RawOptions...),
 		})
 		return true

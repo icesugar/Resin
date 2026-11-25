@@ -111,6 +111,7 @@ func RenderClash(nodes []Node, opts ClashOptions) (RenderResult, error) {
 		Proxies: mainGroupProxies,
 	}}, groups...)
 
+	rules := append(clashDefaultDirectRules(), "MATCH,"+groupName)
 	content, err := yaml.Marshal(clashConfig{
 		MixedPort:   7890,
 		AllowLan:    true,
@@ -118,7 +119,7 @@ func RenderClash(nodes []Node, opts ClashOptions) (RenderResult, error) {
 		LogLevel:    "info",
 		Proxies:     proxies,
 		ProxyGroups: groups,
-		Rules:       []string{"MATCH," + groupName},
+		Rules:       rules,
 	})
 	if err != nil {
 		return RenderResult{}, fmt.Errorf("marshal clash config: %w", err)

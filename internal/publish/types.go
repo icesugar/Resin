@@ -7,6 +7,7 @@ import "encoding/json"
 type Node struct {
 	Hash       string
 	Name       string
+	Region     string
 	RawOptions json.RawMessage
 }
 

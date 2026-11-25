@@ -110,6 +110,10 @@ func TestHandleSubscriptionPublicationLifecycle(t *testing.T) {
 func TestHandleSubscriptionPublicationContent(t *testing.T) {
 	srv, cp, _ := newControlPlaneTestServer(t)
 	createTestSubscriptionWithNode(t, srv, cp)
+	cp.Pool.Range(func(_ node.Hash, entry *node.NodeEntry) bool {
+		entry.SetEgressRegion("us")
+		return false
+	})
 	created := createTestPublication(t, srv)
 
 	clashRec := doJSONRequest(t, srv, http.MethodGet, created.SubscriptionPath, nil, false)
@@ -125,6 +129,12 @@ func TestHandleSubscriptionPublicationContent(t *testing.T) {
 	}
 	if !strings.Contains(clashBody, "proxy-groups:") {
 		t.Fatalf("full config missing proxy-groups:\n%s", clashBody)
+	}
+	if !strings.Contains(clashBody, "name: US pubtest/hk-node") {
+		t.Fatalf("clash node name missing region prefix:\n%s", clashBody)
+	}
+	if !strings.Contains(clashBody, "GEOIP,CN,DIRECT") || !strings.Contains(clashBody, "DOMAIN-SUFFIX,feishu.cn,DIRECT") {
+		t.Fatalf("clash default direct rules missing:\n%s", clashBody)
 	}
 
 	providerRec := doJSONRequest(t, srv, http.MethodGet, created.ProviderPath, nil, false)
@@ -146,6 +156,12 @@ func TestHandleSubscriptionPublicationContent(t *testing.T) {
 	}
 	if _, ok := singbox["outbounds"]; !ok {
 		t.Fatalf("singbox body missing outbounds: %s", singboxRec.Body.String())
+	}
+	if !strings.Contains(singboxRec.Body.String(), `"tag": "US pubtest/hk-node"`) {
+		t.Fatalf("singbox node name missing region prefix: %s", singboxRec.Body.String())
+	}
+	if !strings.Contains(singboxRec.Body.String(), `"ip_is_private": true`) {
+		t.Fatalf("singbox private-IP direct rule missing: %s", singboxRec.Body.String())
 	}
 }
 

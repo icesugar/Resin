@@ -74,7 +74,7 @@ Resin can publish node-pool subsets as subscription URLs for modern clients, usi
 - Clash Provider (only `proxies:`): `/sub/{id}/{token}.yaml?format=provider`
 - sing-box: `/sub/{id}/{token}.json`
 
-Each publication can be enabled independently and optionally exports healthy nodes only. URLs are protected by a random token; rotating the token invalidates old URLs immediately. Publishing only reads the node pool and does not change platform routing rules.
+Each publication can be enabled independently and optionally exports healthy nodes only. Exported node names are prefixed with the egress country code; full Clash/sing-box configs route private IPs, common Chinese domains, and mainland-China IPs directly. URLs are protected by a random token; rotating the token invalidates old URLs immediately. Publishing only reads the node pool and does not change platform routing rules.
 
 ## 🚀 Quick Start
 
